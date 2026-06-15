@@ -1,0 +1,58 @@
+# meeting-prep-skill CI（ゲート自動化B案・concept/17・C3 escalation-skill 同型）
+# 柱: (a) クリーンpytest（収集エラー0・期待数一致） (b) sha256マニフェスト
+#     (c) 境界再現スクリプト（CLI完成ゲートG7で追加＝3本柱目）
+# CIはgit SHAをチェックアウトして走るため mount stale 偽陰性は原理的に発生しない（concept/17 §4）。
+#
+# 【静的化】期待passed数は env でなく リポジトリ直下の expected_passed.txt から読む。
+#   → ci.yml はゲートごとに編集不要（GitHub App の Workflows 権限なしでも、各ゲートは
+#     expected_passed.txt（プレーンテキスト）の更新だけで回る）。CI authoring は初回1回のみ。
+name: ci
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # repo同梱サンプル（01_PoC正本の複製・合成データ）。conftestが最優先で解決する。
+  MEETING_PREP_SAMPLES_DIR: ${{ github.workspace }}/samples
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: python -m pip install openpyxl pyyaml pytest
+
+      # (b) sha256マニフェスト（検証対象の固定をPRチェックに可視化）
+      # pytestより前に実行＝クリーンなチェックアウト時点の姿を記録する（生成物 __pycache__ を除外）。
+      - name: sha256 manifest
+        run: |
+          find src tests specs samples CLAUDE.md expected_passed.txt -type f -not -path '*__pycache__*' 2>/dev/null | LC_ALL=C sort | xargs sha256sum > sha256-manifest.txt
+          echo "### sha256 manifest" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat sha256-manifest.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: sha256-manifest
+          path: sha256-manifest.txt
+
+      # (a) クリーンpytest。--ignore等なし・全収集。passed数を確定リファレンス（expected_passed.txt）と照合。
+      - name: Run pytest (clean)
+        run: |
+          set -o pipefail
+          expected=$(tr -d '[:space:]' < expected_passed.txt)
+          python -X utf8 -m pytest tests/ -q 2>&1 | tee pytest-out.txt
+          grep -E "^[0-9]+ passed" pytest-out.txt > /dev/null || { echo "::error::failed/error あり、または収集0"; exit 1; }
+          actual=$(grep -oE "^[0-9]+ passed" pytest-out.txt | grep -oE "^[0-9]+")
+          echo "passed=$actual (expected=$expected)"
+          test "$actual" = "$expected" || { echo "::error::passed数が確定リファレンス($expected)と不一致: $actual"; exit 1; }
+          echo "### pytest: $actual passed (expected $expected) ✅" >> "$GITHUB_STEP_SUMMARY"
