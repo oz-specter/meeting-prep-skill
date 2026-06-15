@@ -1,0 +1,7 @@
+# Windows(cp932環境)とCI(Linux)の差異を吸収する。テキストはLF正規化。
+* text=auto eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.xlsx binary
