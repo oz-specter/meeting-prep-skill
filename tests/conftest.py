@@ -120,6 +120,12 @@ def sample_carryover_total() -> int:
 
 
 @pytest.fixture
+def sample_action_count() -> int:
+    """宿題（＝carryover_action）件数。test_minutes_reader 用（＝SAMPLE_CARRYOVER_TOTAL）。"""
+    return SAMPLE_CARRYOVER_TOTAL
+
+
+@pytest.fixture
 def sample_decision_followup() -> int:
     return SAMPLE_DECISION_FOLLOWUP
 
