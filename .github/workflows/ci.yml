@@ -56,3 +56,13 @@ jobs:
           echo "passed=$actual (expected=$expected)"
           test "$actual" = "$expected" || { echo "::error::passed数が確定リファレンス($expected)と不一致: $actual"; exit 1; }
           echo "### pytest: $actual passed (expected $expected) ✅" >> "$GITHUB_STEP_SUMMARY"
+
+      # (c) 境界再現（CLI実走でe2eアンカー＋契約を独立再現＝3本柱目・G7で追加）
+      - name: Boundary reproduce (CLI)
+        run: |
+          set -o pipefail
+          python -X utf8 scripts/ci_boundary_check.py | tee boundary-out.txt
+          echo "### boundary reproduce ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat boundary-out.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
